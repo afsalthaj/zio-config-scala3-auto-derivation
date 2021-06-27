@@ -57,36 +57,46 @@ object Descriptor {
 
   inline given derived[T](using m: Mirror.Of[T]): Descriptor[T] =
     lazy val descriptors = summonDescriptorAll[m.MirroredElemTypes]
-    lazy val label = constValue[m.MirroredLabel]
+    lazy val allPossibleFieldNames = summonAllNames[m.MirroredElemTypes]
     lazy val elemLabels = labelsToList[m.MirroredElemLabels]
+    lazy val label = constValue[m.MirroredLabel]
+    lazy val name = Macros.nameAnnotations[T]
+    lazy val names = Macros.namesAnnotations[T]
+    lazy val allPossibleParentNames = label :: name.map(_.name) ++ names.flatMap(_.names.toList)
 
     inline m match
       case s: Mirror.SumOf[T] => 
         descriptorOfSum(
           descriptors.map(_.asInstanceOf[Descriptor[T]]), 
-          label
+          allPossibleParentNames
         )
+
       case a: Mirror.ProductOf[T] => 
         descriptorOfProduct(
           descriptors, 
           elemLabels, 
-          label, 
+          allPossibleParentNames, 
           lst => a.fromProduct(Tuple.fromArray(lst.toArray[Any])),
           t => t.asInstanceOf[Product].productIterator.toList
         )
 
    def descriptorOfSum[T](
      allDescs: => List[Descriptor[T]],
-     originalLabel: => String,
+     possibleNames: => List[String],
      st: SealedTraitNameStrategy = SealedTraitNameStrategy.IgnoreSealedTraitName
    ): Descriptor[T] =  {
      import SealedTraitNameStrategy._ 
      
      val desc = 
       allDescs.reduce((a, b) => Descriptor(a.desc.orElse(b.desc)))
+
      st match {
-       case WrapSealedTraitName => 
-        Descriptor(nested(originalLabel)(desc.desc))
+       case WrapSealedTraitName =>
+        val descAtAllPaths =  
+          possibleNames.map(n => nested(n)(desc.desc)).reduce(_ orElse _)
+
+        Descriptor(descAtAllPaths)
+
        case IgnoreSealedTraitName => 
          desc
      }
@@ -95,17 +105,23 @@ object Descriptor {
    def descriptorOfProduct[T](
      allDescs: => List[Descriptor[_]],
      elemLabels: => List[String],
-     label: => String,
+     possibleNames: => List[String],
      f: List[Any] => T,
      g: T => List[Any]
    ): Descriptor[T] =
       if elemLabels.isEmpty then
-          Descriptor(Constant.mk(label).transform[T](_ => f(List.empty[Any]), _.toString))
+          val tryAllPaths = possibleNames.map(n => Constant.mk(n)).reduce(_ orElse _)
+          Descriptor(tryAllPaths.transform[T](_ => f(List.empty[Any]), _.toString))
       else
         val listOfDescriptions = 
           elemLabels.zip(allDescs).map({case (a, b) => nested(a)(b.desc.asInstanceOf[ConfigDescriptor[Any]])})
         
         Descriptor(collectAll(listOfDescriptions.head, listOfDescriptions.tail :_*).transform[T](f, g))
+
+  inline def summonAllNames[T <: Tuple]: List[(String, List[Any])] = 
+    inline erasedValue[T] match
+      case _ : EmptyTuple => Nil
+      case _: (t *: ts) => Macros.fieldAnnotations[t] ++ summonAllNames[ts]
 
   inline def summonDescriptorAll[T <: Tuple]: List[Descriptor[_]] = 
     inline erasedValue[T] match
