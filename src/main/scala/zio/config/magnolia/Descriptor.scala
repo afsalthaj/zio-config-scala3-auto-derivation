@@ -42,8 +42,17 @@ object Descriptor {
   given Descriptor[File] = Descriptor(file)
   given Descriptor[java.nio.file.Path] = Descriptor(javaFilePath)
 
+  given eitherDesc[A, B](using ev1: Descriptor[A], ev2: Descriptor[B]): Descriptor[Either[A, B]] = 
+    Descriptor(ev1.desc.orElseEither(ev2.desc))
+
+  given optDesc[A](using ev: Descriptor[A]): Descriptor[Option[A]] = 
+    Descriptor(ev.desc.optional)
+
   given listDesc[A](using ev: Descriptor[A]): Descriptor[List[A]] = 
     Descriptor(list(ev.desc))
+
+  given mapDesc[A](using ev: Descriptor[A]): Descriptor[Map[String, A]] = 
+    Descriptor(map(ev.desc))  
 
   inline given derived[T](using m: Mirror.Of[T]): Descriptor[T] =
     lazy val descriptors = summonDescriptorAll[m.MirroredElemTypes]
@@ -51,14 +60,21 @@ object Descriptor {
     lazy val elemLabels = labelsToList[m.MirroredElemLabels]
 
     inline m match
-      case s: Mirror.SumOf[T] => ???
-      case a: Mirror.ProductOf[T] => descriptorOfProduct(
-        descriptors, 
-        elemLabels, 
-        label, 
-        lst => a.fromProduct(Tuple.fromArray(lst.toArray[Any])),
-        t => t.asInstanceOf[Product].productIterator.toList
-      )
+      case s: Mirror.SumOf[T] => 
+        descriptorOfSum(descriptors.map(_.asInstanceOf[Descriptor[T]]))
+      case a: Mirror.ProductOf[T] => 
+        descriptorOfProduct(
+          descriptors, 
+          elemLabels, 
+          label, 
+          lst => a.fromProduct(Tuple.fromArray(lst.toArray[Any])),
+          t => t.asInstanceOf[Product].productIterator.toList
+        )
+
+   def descriptorOfSum[T](
+     allDescs: => List[Descriptor[T]]
+   ): Descriptor[T] = 
+    allDescs.reduce((a, b) => Descriptor(a.desc.orElse(b.desc)))
 
    def descriptorOfProduct[T](
      allDescs: => List[Descriptor[_]],
