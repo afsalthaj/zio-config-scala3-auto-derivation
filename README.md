@@ -1,5 +1,6 @@
-## ZIO Config Scala3 example
+## ZIO Config Scala3 Autoderivation
 
 ### Usage
 
-A project that helps you onboard to zio-config with scala3.
+A completely standalone project to ensure simplicity in scala3 autoderivation for zio-config.
+The project will be merged with zio-config, to then later on act as a playground for all possibilities with Scala3 and zio-config.
