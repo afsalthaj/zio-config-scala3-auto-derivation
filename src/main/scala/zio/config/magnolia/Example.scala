@@ -7,9 +7,9 @@ final case class A(a: B)
 final case class B(b: String, c: C, d: List[C], e: Option[C], f: Either[C, E])
 final case class C()
 
-sealed trait E
-case object D extends E
-case object F extends E
+enum E:
+ case D
+ case F
 
 object Example extends App:
   val source = 
