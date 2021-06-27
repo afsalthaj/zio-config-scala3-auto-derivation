@@ -42,6 +42,9 @@ object Descriptor {
   given Descriptor[File] = Descriptor(file)
   given Descriptor[java.nio.file.Path] = Descriptor(javaFilePath)
 
+  given listDesc[A](using ev: Descriptor[A]): Descriptor[List[A]] = 
+    Descriptor(list(ev.desc))
+
   inline given derived[T](using m: Mirror.Of[T]): Descriptor[T] =
     lazy val descriptors = summonDescriptorAll[m.MirroredElemTypes]
     lazy val label = constValue[m.MirroredLabel]
@@ -63,26 +66,22 @@ object Descriptor {
      label: => String,
      f: List[Any] => T,
      g: T => List[Any]
-   ): Descriptor[T] =  {
-      if (elemLabels.isEmpty) {
+   ): Descriptor[T] =
+      if elemLabels.isEmpty then
           Descriptor(Constant.mk(label).transform[T](_ => f(List.empty[Any]), _.toString))
-      } else {
+      else
         val listOfDescriptions = 
           elemLabels.zip(allDescs).map({case (a, b) => nested(a)(b.desc.asInstanceOf[ConfigDescriptor[Any]])})
         
         Descriptor(collectAll(listOfDescriptions.head, listOfDescriptions.tail :_*).transform[T](f, g))
-      }
-  }
 
   inline def summonDescriptorAll[T <: Tuple]: List[Descriptor[_]] = 
-    inline erasedValue[T] match {
+    inline erasedValue[T] match
       case _ : EmptyTuple => Nil
       case _: (t *: ts) => summonInline[Descriptor[t]] :: summonDescriptorAll[ts]
-    }
 
   inline def labelsToList[T <: Tuple]: List[String] = 
-    inline erasedValue[T] match {
+    inline erasedValue[T] match
       case _: EmptyTuple => Nil
       case _ : ( t *: ts) => constValue[t].toString :: labelsToList[ts]
-    }
 }
