@@ -11,6 +11,7 @@ import scala.concurrent.duration.{Duration => ScalaDuration}
 import ConfigDescriptorAdt._
 import scala.deriving._
 import scala.compiletime.{erasedValue, summonInline, constValue, error, codeOf}
+import scala.quoted.*
 
 final case class Descriptor[A](desc: ConfigDescriptor[A])
 
@@ -61,7 +62,10 @@ object Descriptor {
 
     inline m match
       case s: Mirror.SumOf[T] => 
-        descriptorOfSum(descriptors.map(_.asInstanceOf[Descriptor[T]]))
+        descriptorOfSum(
+          descriptors.map(_.asInstanceOf[Descriptor[T]]), 
+          label
+        )
       case a: Mirror.ProductOf[T] => 
         descriptorOfProduct(
           descriptors, 
@@ -72,9 +76,21 @@ object Descriptor {
         )
 
    def descriptorOfSum[T](
-     allDescs: => List[Descriptor[T]]
-   ): Descriptor[T] = 
-    allDescs.reduce((a, b) => Descriptor(a.desc.orElse(b.desc)))
+     allDescs: => List[Descriptor[T]],
+     originalLabel: => String,
+     st: SealedTraitNameStrategy = SealedTraitNameStrategy.IgnoreSealedTraitName
+   ): Descriptor[T] =  {
+     import SealedTraitNameStrategy._ 
+     
+     val desc = 
+      allDescs.reduce((a, b) => Descriptor(a.desc.orElse(b.desc)))
+     st match {
+       case WrapSealedTraitName => 
+        Descriptor(nested(originalLabel)(desc.desc))
+       case IgnoreSealedTraitName => 
+         desc
+     }
+    }
 
    def descriptorOfProduct[T](
      allDescs: => List[Descriptor[_]],

@@ -3,6 +3,7 @@ package zio.config.magnolia
 import zio.config.magnolia._
 import zio.config._, ConfigDescriptor._
 
+@name("AA")
 final case class A(a: B)
 final case class B(b: String, c: C, d: List[C], e: Option[C], f: Either[C, E])
 final case class C()
