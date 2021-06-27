@@ -42,22 +42,35 @@ object Descriptor {
   given Descriptor[File] = Descriptor(file)
   given Descriptor[java.nio.file.Path] = Descriptor(javaFilePath)
 
-  inline given descriptorOfProduct[T <: Product](using m: Mirror.ProductOf[T]): Descriptor[T] =  {
-    val label = constValue[m.MirroredLabel]
-    val elemLabels = labelsToList[m.MirroredElemLabels]
-    val allDescs = summonDescriptorAll[m.MirroredElemTypes]
-  
+  inline given derived[T](using m: Mirror.Of[T]): Descriptor[T] =
+    lazy val descriptors = summonDescriptorAll[m.MirroredElemTypes]
+    lazy val label = constValue[m.MirroredLabel]
+    lazy val elemLabels = labelsToList[m.MirroredElemLabels]
+
+    inline m match
+      case s: Mirror.SumOf[T] => ???
+      case a: Mirror.ProductOf[T] => descriptorOfProduct(
+        descriptors, 
+        elemLabels, 
+        label, 
+        lst => a.fromProduct(Tuple.fromArray(lst.toArray[Any])),
+        t => t.asInstanceOf[Product].productIterator.toList
+      )
+
+   def descriptorOfProduct[T](
+     allDescs: => List[Descriptor[_]],
+     elemLabels: => List[String],
+     label: => String,
+     f: List[Any] => T,
+     g: T => List[Any]
+   ): Descriptor[T] =  {
       if (elemLabels.isEmpty) {
-          Descriptor(Constant.mk(label).transform[T](_ => m.fromProduct(Tuple.fromArray(Array.empty[Any])), _ => ???))
+          Descriptor(Constant.mk(label).transform[T](_ => f(List.empty[Any]), _.toString))
       } else {
         val listOfDescriptions = 
           elemLabels.zip(allDescs).map({case (a, b) => nested(a)(b.desc.asInstanceOf[ConfigDescriptor[Any]])})
         
-        Descriptor(
-          collectAll(listOfDescriptions.head, listOfDescriptions.tail :_*).transform[T](
-            lst => m.fromProduct(Tuple.fromArray(lst.toArray[Any])), 
-            b => Tuple.fromProductTyped(b).toList
-          ))
+        Descriptor(collectAll(listOfDescriptions.head, listOfDescriptions.tail :_*).transform[T](f, g))
       }
   }
 
