@@ -8,7 +8,6 @@ object Macros:
   inline def describe[T]: List[describe] = ${anns[T, describe]("zio.config.magnolia.describe")}
   inline def fieldAnnotations[T]: List[(String, List[Any])] = ${paramAnns[T]}
 
-  
   def anns[T: Type, A: Type](ownerName: String)(using Quotes): Expr[List[A]] = {
     import quotes.reflect.*
 
@@ -22,7 +21,6 @@ object Macros:
       }}.map(_.asExpr.asInstanceOf[Expr[A]])
     }  
   }
-
 
   def paramAnns[T: Type](using Quotes): Expr[List[(String, List[Any])]] =
     import quotes.reflect.*
