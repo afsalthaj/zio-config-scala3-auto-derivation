@@ -9,7 +9,7 @@ import java.time.{Instant, LocalDate, LocalDateTime, LocalTime}
 import java.util.UUID
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.deriving._
-import scala.compiletime._
+import scala.compiletime.{erasedValue, summonInline, constValue}
 import scala.quoted
 
 import javax.management.Descriptor
@@ -63,11 +63,11 @@ object Descriptor {
     lazy val names = Macros.namesAnnotations[T]
     lazy val allPossibleParentNames = label :: name.map(_.name) ++ names.flatMap(_.names.toList)
 
-     m match
+     inline m match
       case s: Mirror.SumOf[T] =>
         descriptorOfSum(
           descriptors.map(_.asInstanceOf[Descriptor[T]]),
-          allPossibleParentNames
+          name.map(_.name) ++ names.flatMap(_.names.toList)
         )
 
       case a: Mirror.ProductOf[T] =>
@@ -82,13 +82,13 @@ object Descriptor {
 
    def descriptorOfSum[T](
      allDescs: => List[Descriptor[T]],
-     possibleNames: => List[String],
+     extraNames: => List[String]
    ): Descriptor[T] =
      val desc =
       allDescs.reduce((a, b) => Descriptor(a.desc.orElse(b.desc)))
 
-     if (possibleNames.nonEmpty) then
-       Descriptor(possibleNames.map(n => nested(n)(desc.desc)).reduce(_ orElse _))
+     if (extraNames.nonEmpty) then
+       Descriptor(extraNames.map(n => nested(n)(desc.desc)).reduce(_ orElse _))
      else desc
 
    def descriptorOfProduct[T](
