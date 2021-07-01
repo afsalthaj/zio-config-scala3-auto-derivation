@@ -33,6 +33,11 @@ enum P:
   @name("t")
   case T(u: String)
 
+@label("type")
+enum V:
+  case X
+  case Y
+  case Z
 
 object Example extends App :
   val source =
