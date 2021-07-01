@@ -6,7 +6,7 @@ object Macros:
   inline def nameAnnotations[T]: List[name] = ${anns[T, name]("zio.config.magnolia.name")}
   inline def namesAnnotations[T]: List[names] = ${anns[T, names]("zio.config.magnolia.names")}
   inline def describe[T]: List[describe] = ${anns[T, describe]("zio.config.magnolia.describe")}
-  inline def fieldAnnotations[T]: List[(String, List[Any])] = ${paramAnns[T]}
+  inline def fieldAnnotations[T]: List[(String, List[Any])] = ${fieldAnns[T]}
 
   def anns[T: Type, A: Type](ownerName: String)(using Quotes): Expr[List[A]] = {
     import quotes.reflect.*
@@ -22,7 +22,7 @@ object Macros:
     }  
   }
 
-  def paramAnns[T: Type](using Quotes): Expr[List[(String, List[Any])]] =
+  def fieldAnns[T: Type](using Quotes): Expr[List[(String, List[Any])]] =
     import quotes.reflect.*
 
     val tpe = TypeRepr.of[T]
